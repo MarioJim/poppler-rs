@@ -155,6 +155,9 @@ impl std::ops::Drop for PopplerDocument {
     }
 }
 
+unsafe impl Send for PopplerDocument {}
+unsafe impl Sync for PopplerDocument {}
+
 // TODO replace Box<dyn FnMut> with an opaque type once we have existential types
 impl<'a> std::iter::IntoIterator for &'a PopplerDocument {
     type Item = PopplerPage;
