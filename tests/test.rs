@@ -1,5 +1,5 @@
 use cairo::{Context, Format, ImageSurface, PdfSurface};
-use poppler::{PopplerDocument, PopplerPage};
+use poppler::{Bytes, PopplerDocument, PopplerPage};
 use std::{fs::File, io::Read};
 
 #[test]
@@ -10,8 +10,8 @@ fn test1() -> Result<(), cairo::Error> {
 
     println!("Document has {} page(s)", num_pages);
 
-    let mut surface = PdfSurface::new(420.0, 595.0, "tests/output.pdf").unwrap();
-    let ctx = Context::new(&mut surface)?;
+    let surface = PdfSurface::new(420.0, 595.0, "tests/output.pdf").unwrap();
+    let ctx = Context::new(&surface)?;
 
     for (page_num, page) in doc.into_iter().enumerate() {
         let (w, h) = page.size();
@@ -59,8 +59,8 @@ fn test2_from_file() -> Result<(), cairo::Error> {
 
     assert_eq!(title, "This is a test PDF file");
 
-    let mut surface = ImageSurface::create(Format::ARgb32, w as i32, h as i32).unwrap();
-    let ctx = Context::new(&mut surface)?;
+    let surface = ImageSurface::create(Format::ARgb32, w as i32, h as i32).unwrap();
+    let ctx = Context::new(&surface)?;
 
     ctx.save()?;
     page.render(&ctx)?;
@@ -78,7 +78,8 @@ fn test2_from_data() {
     let mut file = File::open(path).unwrap();
     let mut data: Vec<u8> = Vec::new();
     file.read_to_end(&mut data).unwrap();
-    let doc: PopplerDocument = PopplerDocument::from_data(&mut data[..], "upw").unwrap();
+    let doc_bytes = Bytes::from(&data);
+    let doc: PopplerDocument = PopplerDocument::from_bytes(doc_bytes, "upw").unwrap();
     let num_pages = doc.n_pages();
     let title = doc.title().unwrap();
     let metadata = doc.metadata();
@@ -103,7 +104,7 @@ fn test2_from_data() {
 
 #[test]
 fn test3() {
-    let mut data = vec![];
+    let data = Bytes::from_static(&[]);
 
-    assert!(PopplerDocument::from_data(&mut data[..], "upw").is_err());
+    assert!(PopplerDocument::from_bytes(data, "upw").is_err());
 }

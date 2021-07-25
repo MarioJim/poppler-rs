@@ -1,10 +1,10 @@
 use crate::util;
 use crate::PopplerPage;
+use cairo::glib;
 use poppler_sys::{poppler as sys, poppler_document as sys_doc};
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
 use std::path;
-use cairo::glib;
 
 #[derive(Debug)]
 pub struct PopplerDocument(*mut sys::PopplerDocument);
@@ -33,7 +33,10 @@ impl PopplerDocument {
 
     #[doc(alias = "poppler_document_new_from_data")]
     #[doc(alias = "new_from_data")]
-    #[deprecated(note = "[`from_data`] has been deprecated since version 0.82 and should not be used in newly-written code. This requires directly managing length and data . Use [`from_bytes`] instead.", since = "Poppler v0.82")]
+    #[deprecated(
+        note = "[`from_data`] has been deprecated since version 0.82 and should not be used in newly-written code. This requires directly managing length and data . Use [`from_bytes`] instead.",
+        since = "0.4.0"
+    )]
     pub fn from_data(
         data: &mut [u8],
         password: &str,
@@ -77,11 +80,7 @@ impl PopplerDocument {
         })?;
         use glib::translate::ToGlibPtr;
         let doc = util::call_with_gerror(|err_ptr| unsafe {
-            sys_doc::poppler_document_new_from_bytes(
-                bytes.to_glib_full(),
-                pw.as_ptr(),
-                err_ptr,
-            )
+            sys_doc::poppler_document_new_from_bytes(bytes.to_glib_none().0, pw.as_ptr(), err_ptr)
         })?;
 
         Ok(PopplerDocument(doc))
@@ -150,12 +149,22 @@ impl PopplerDocument {
     }
 }
 
+impl std::ops::Drop for PopplerDocument {
+    fn drop(&mut self) {
+        unsafe { glib::gobject_ffi::g_object_unref(self.0.cast()) }
+    }
+}
+
 // TODO replace Box<dyn FnMut> with an opaque type once we have existential types
-impl <'a> std::iter::IntoIterator for &'a PopplerDocument {
+impl<'a> std::iter::IntoIterator for &'a PopplerDocument {
     type Item = PopplerPage;
-    type IntoIter = std::iter::Map<std::ops::Range<usize>, Box<dyn FnMut(usize) -> Self::Item + 'a>>;
+    type IntoIter =
+        std::iter::Map<std::ops::Range<usize>, Box<dyn FnMut(usize) -> Self::Item + 'a>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        (0..self.n_pages()).map(Box::new(move |page| self.page(page).expect("Poppler internal error: PDF is missing a page?!")))
+        (0..self.n_pages()).map(Box::new(move |page| {
+            self.page(page)
+                .expect("Poppler internal error: PDF is missing a page?!")
+        }))
     }
 }

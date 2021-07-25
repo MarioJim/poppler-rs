@@ -50,4 +50,21 @@ impl PopplerPage {
             ptr => unsafe { Some(CStr::from_ptr(ptr).to_str().unwrap()) },
         }
     }
+
+    pub fn owned_text(&self) -> Option<String> {
+        match unsafe { sys_pg::poppler_page_get_text(self.0) } {
+            ptr if ptr.is_null() => None,
+            ptr => {
+                let text = unsafe { CStr::from_ptr(ptr).to_string_lossy().into_owned() };
+                unsafe { cairo::glib::ffi::g_free(ptr.cast()) };
+                Some(text)
+            }
+        }
+    }
+}
+
+impl std::ops::Drop for PopplerPage {
+    fn drop(&mut self) {
+        unsafe { cairo::glib::gobject_ffi::g_object_unref(self.0.cast()) }
+    }
 }
